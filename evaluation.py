@@ -3,6 +3,7 @@ import json
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from textwrap import fill
 
 # Creates the prompt to give to the LLM evaluator, which includes the question, correct answer and all nine answers from the chatbots.
 def createPrompt (questionNumber, filename):
@@ -77,7 +78,7 @@ def generate_plot (values, metric, title, fixed_size):
 
     for bar in bars:
         yval = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2, yval + 0.05, round(yval, 2), ha='center', va='bottom')
+        ax.text(bar.get_x() + bar.get_width()/2, yval + 0.002, round(yval, 2), ha='center', va='bottom')
 
 # Show the results for a subject
 def display_results (result, subject):
@@ -98,6 +99,66 @@ def display_results (result, subject):
     generate_plot(avg_max, 'Average maximum', f'Chatbot average maximum scores in {subject}', True)
     generate_plot(avg_std, 'Average standard deviation', f'Chatbot variability in {subject}', False)
 
+# Creates three tables, one for each chatbot, showing their results to each question
+def create_tables (data):
+    array = np.array(data)
+
+    column_ranges = [(0, 3), (3, 6), (6, 9)]
+    grade_ranges = [(4, 5), (3, 4), (2, 3), (1, 2)]
+    tables = []
+
+    for start_col, end_col in column_ranges:
+        specific_columns = array[:, start_col:end_col]
+        averages = specific_columns.mean(axis=1)
+
+        counts = []
+        questions = []
+
+        for r in grade_ranges:
+            if r[0] != 1:
+                in_range = np.where((averages > r[0]) & (averages <= r[1]))[0].tolist()
+            else:
+                in_range = np.where((averages >= r[0]) & (averages <= r[1]))[0].tolist()
+            counts.append(len(in_range))
+            questions.append(', '.join([f'Q{i + 1}' for i in in_range]))
+
+        table_data = {
+            'Average grade': ['4 < x <= 5', '3 < x <= 4', '2 < x <= 3', '1 <= x <= 2'],
+            'Count': counts,
+            'Questions': questions
+        }
+
+        table_df = pd.DataFrame(table_data)
+        tables.append((table_df))
+
+    return tables
+
+# Display the tables showing each chatbot's results to each question
+def display_tables (data, subject):
+    tables = create_tables(data)
+    chatbots = ['Llama 3 70B', 'ChatGPT 4', 'Gemini Advanced']
+    for iteration, table in enumerate(tables):
+        table['Questions'] = table['Questions'].apply(lambda x: fill(x, width=40))
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.set_title(f'{chatbots[iteration]} results in {subject}', fontsize=16)
+
+        ax.xaxis.set_visible(False) 
+        ax.yaxis.set_visible(False)
+        ax.set_frame_on(False)
+
+        table_figure = ax.table(cellText=table.values, colLabels=table.columns, cellLoc='center', loc='center')
+
+        table_figure.auto_set_font_size(False)
+        table_figure.set_fontsize(12)
+        table_figure.scale(4, 4)
+        table_figure.auto_set_column_width([0, 1, 2])
+
+        for key, cell in table_figure.get_celld().items():
+            if key[1] == 2:
+                cell.set_text_props(ha='left')
+            if key[0] == 0 or key[1] == -1:
+                cell.set_fontsize(14)
+                cell.set_text_props(weight='bold')
 
 
 client = OpenAI(api_key="")
@@ -111,6 +172,7 @@ for i in range(1, 31):
   history_grades.append(grades)
 
 display_results(history_grades, 'history')
+display_tables(history_grades, 'history')
 
 
 # Biology
@@ -121,6 +183,7 @@ for i in range(1, 32):
   biology_grades.append(grades)
 
 display_results(biology_grades, 'biology')
+display_tables(biology_grades, 'biology')
 
 
 plt.show()
