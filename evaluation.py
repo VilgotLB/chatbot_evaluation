@@ -7,13 +7,16 @@ from textwrap import fill
 
 # Creates the prompt to give to the LLM evaluator, which includes the question, correct answer and all nine answers from the chatbots.
 def createPrompt (questionNumber, filename):
+  # Load entry from csv file
   data=pd.read_csv(filename)
   row = data.iloc[questionNumber-1]
   
+  # Separate into question, correct answer and chatbot answers
   question = row.iloc[0]
   correct = row.iloc[1]
   answers = row[2:]
 
+  # Construct prompt
   prompt = ''
   prompt += f'Question: {question}\n\n'
   prompt += f'Correct answer: {correct}\n\n'
@@ -24,6 +27,7 @@ def createPrompt (questionNumber, filename):
 
 # Grades all nine answers to the question from 1 to 5.
 def gradeQuestion (question_number, filename):
+  # Send API request
   prompt = createPrompt(question_number, filename)
   completion = client.chat.completions.create(
     model="gpt-4-turbo",
@@ -33,8 +37,10 @@ def gradeQuestion (question_number, filename):
     ],
     response_format={ "type": "json_object" }
   )
+
+  # Parse the response
   response = json.loads(completion.choices[0].message.content)
-  grades = [item['Grade'] for item in response['results']]
+  grades = [item['Grade'] for item in sorted(response['results'], key=lambda x: x['Answer'])]
   return grades
 
 # Calculate the average score for each chatbot
@@ -82,18 +88,21 @@ def generate_plot (values, metric, title, fixed_size):
 
 # Show the results for a subject
 def display_results (result, subject):
+    # Calculate results
     array = np.array(result)
     avg = average(array)
     avg_min = average_min(array)
     avg_max = average_max(array)
     avg_std = average_stds(array)
 
+    # Print results
     print(subject + ':')
     print(f'Average: {avg}')
     print(f'Average minimum: {avg_min}')
     print(f'Average maximum: {avg_max}')
     print(f'Variability: {avg_std}')
 
+    # Show plots of results
     generate_plot(avg, 'Average', f'Chatbot average scores in {subject}', True)
     generate_plot(avg_min, 'Average minimum', f'Chatbot average minimum scores in {subject}', True)
     generate_plot(avg_max, 'Average maximum', f'Chatbot average maximum scores in {subject}', True)
@@ -107,6 +116,7 @@ def create_tables (data):
     grade_ranges = [(4, 5), (3, 4), (2, 3), (1, 2)]
     tables = []
 
+    # For each chatbot
     for start_col, end_col in column_ranges:
         specific_columns = array[:, start_col:end_col]
         averages = specific_columns.mean(axis=1)
@@ -114,6 +124,7 @@ def create_tables (data):
         counts = []
         questions = []
 
+        # For each grade range, find the questions that received an average grade in that range.
         for r in grade_ranges:
             if r[0] != 1:
                 in_range = np.where((averages > r[0]) & (averages <= r[1]))[0].tolist()
@@ -164,25 +175,30 @@ def display_tables (data, subject):
 client = OpenAI(api_key="")
 
 
-# History
+# History grading
 
 history_grades = []
 for i in range(1, 31):
   grades = gradeQuestion(i, 'answers/history.csv')
   history_grades.append(grades)
 
-display_results(history_grades, 'history')
-display_tables(history_grades, 'history')
 
-
-# Biology
+# Biology grading
 
 biology_grades = []
 for i in range(1, 32):
   grades = gradeQuestion(i, 'answers/biology.csv')
   biology_grades.append(grades)
 
+
+# Plots
+
+display_results(history_grades, 'history')
 display_results(biology_grades, 'biology')
+
+# Tables
+
+display_tables(history_grades, 'history')
 display_tables(biology_grades, 'biology')
 
 
