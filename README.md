@@ -3,5 +3,5 @@ This repository includes the code, dataset and results of our bachelor thesis ab
 
 ## Run the code
 1. Install the required libraries using ``pip install openai pandas numpy matplotlib``.
-2. Add your OpenAI API key as the ``api_key`` parameter on line 103.
+2. Add your OpenAI API key as the ``api_key`` parameter on line 175.
 3. Run the script.
