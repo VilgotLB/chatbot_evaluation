@@ -67,7 +67,7 @@ def average_max(matrix):
 # Calculate the variability for each chatbot (higher values = less consistent)
 def average_stds(matrix):
     reshaped_matrix = matrix.reshape(matrix.shape[0], 3, 3)
-    std_devs = np.std(reshaped_matrix, axis=2)
+    std_devs = np.std(reshaped_matrix, axis=2, ddof=1)
     mean_std_devs = np.mean(std_devs, axis=0)
     return mean_std_devs
 
